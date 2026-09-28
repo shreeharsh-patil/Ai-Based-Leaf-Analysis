@@ -1,0 +1,61 @@
+name: Package and model upgrade
+
+on:
+  push:
+    branches:
+      - maintenance/package-model-upgrade
+    paths:
+      - .github/workflows/package-model-upgrade.yml
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: maintenance/package-model-upgrade
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Upgrade dependencies to latest stable versions
+        run: npx --yes npm-check-updates@latest -u
+
+      - name: Upgrade Gemini model
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const file = 'src/ai/genkit.ts';
+          let src = fs.readFileSync(file, 'utf8');
+          src = src.replace(/googleai\/gemini-[^'\"]+/, 'googleai/gemini-3.8-flash');
+          fs.writeFileSync(file, src);
+          NODE
+
+      - name: Install upgraded dependency graph
+        run: npm install
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit upgraded packages and model
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src/ai/genkit.ts
+          if git diff --cached --quiet; then
+            echo "No upgrade changes to commit"
+          else
+            git commit -m "chore: upgrade dependencies and Gemini model"
+            git push origin maintenance/package-model-upgrade
+          fi
