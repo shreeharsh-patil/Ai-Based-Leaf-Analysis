@@ -32,6 +32,9 @@ jobs:
           # Genkit 1.42 currently peers on Zod 3.x. Use the newest stable Zod 3
           # rather than forcing an invalid Zod 4 dependency tree.
           npm pkg set dependencies.zod="^3.25.76"
+          # The old self-referencing React overrides are no longer needed and
+          # newer npm rejects them after the React 19.3 upgrade.
+          npm pkg delete overrides
 
       - name: Upgrade Gemini model
         run: |
