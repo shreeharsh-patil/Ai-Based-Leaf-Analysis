@@ -26,8 +26,12 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Upgrade dependencies to latest stable versions
-        run: npx --yes npm-check-updates@latest -u
+      - name: Upgrade dependencies to latest compatible stable versions
+        run: |
+          npx --yes npm-check-updates@latest -u
+          # Genkit 1.42 currently peers on Zod 3.x. Use the newest stable Zod 3
+          # rather than forcing an invalid Zod 4 dependency tree.
+          npm pkg set dependencies.zod="^3.25.76"
 
       - name: Upgrade Gemini model
         run: |
