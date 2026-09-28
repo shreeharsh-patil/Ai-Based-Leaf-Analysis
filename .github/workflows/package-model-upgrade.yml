@@ -1,4 +1,4 @@
-name: Package and model upgrade
+name: Dependency audit
 
 on:
   push:
@@ -8,63 +8,21 @@ on:
       - .github/workflows/package-model-upgrade.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  upgrade:
+  audit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: maintenance/package-model-upgrade
-          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: Upgrade dependencies to latest compatible stable versions
-        run: |
-          npx --yes npm-check-updates@latest -u
-          # Genkit 1.42 currently peers on Zod 3.x. Use the newest stable Zod 3
-          # rather than forcing an invalid Zod 4 dependency tree.
-          npm pkg set dependencies.zod="^3.25.76"
-          # Tailwind 4 moved its PostCSS integration to a dedicated package.
-          npm pkg set devDependencies.@tailwindcss/postcss="^4.3.3"
-          # The old self-referencing React overrides are no longer needed and
-          # newer npm rejects them after the React 19.3 upgrade.
-          npm pkg delete overrides
-
-      - name: Upgrade Gemini model
-        run: |
-          node - <<'NODE'
-          const fs = require('fs');
-          const file = 'src/ai/genkit.ts';
-          let src = fs.readFileSync(file, 'utf8');
-          src = src.replace(/googleai\/gemini-[^'\"]+/, 'googleai/gemini-3.8-flash');
-          fs.writeFileSync(file, src);
-          NODE
-
-      - name: Install upgraded dependency graph
-        run: npm install
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Build
-        run: npm run build
-
-      - name: Commit upgraded packages and model
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json src/ai/genkit.ts
-          if git diff --cached --quiet; then
-            echo "No upgrade changes to commit"
-          else
-            git commit -m "chore: upgrade dependencies and Gemini model"
-            git push origin maintenance/package-model-upgrade
-          fi
+      - name: Audit production dependency tree
+        run: npm audit --omit=dev --json || true
